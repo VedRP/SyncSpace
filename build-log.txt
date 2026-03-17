@@ -1,0 +1,80 @@
+﻿   Γû▓ Next.js 15.5.13
+
+   Creating an optimized production build ...
+node.exe : Found 1 
+warning while 
+optimizing generated 
+CSS:
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (Found 1 warni   
+ ng... generated CS    
+S::String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+
+[2mΓöé   }[22m
+[2mΓöé }[22m
+[2mΓöé[22m @import ur
+l("https://fonts.google
+apis.com/css2?family=In
+ter:wght@300;400;500;60
+0;700;800;900&display=s
+wap");
+[2mΓöå[22m        
+[33m[2m^--[22m 
+@import rules must 
+precede all rules 
+aside from @charset 
+and @layer 
+statements[39m
+[2mΓöå[22m
+[2mΓöé :root {[22m
+[2mΓöé   
+--bg-primary: 
+#0a0a0f;[22m
+
+ Γ£ô Compiled successfully in 2.6s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/9) ...
+   Generating static pages (2/9) 
+   Generating static pages (4/9) 
+   Generating static pages (6/9) 
+ Γ£ô Generating static pages (9/9)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+Γöî Γùï /                                      162 B         106 kB
+Γö£ Γùï /_not-found                            995 B         103 kB
+Γö£ Γùï /dashboard                           3.95 kB         113 kB
+Γö£ Γùï /login                               3.18 kB         109 kB
+Γö£ Γùï /project                             1.98 kB         111 kB
+Γö£ ╞Æ /project/[projectId]                 2.67 kB         112 kB
+Γö£ Γùï /signup                              3.43 kB         109 kB
+Γö£ ╞Æ /task/[projectId]                    20.8 kB         130 kB
+Γö£ Γùï /team                                4.03 kB         113 kB
+Γöö ╞Æ /team/[teamId]                       2.01 kB         111 kB
++ First Load JS shared by all             102 kB
+  Γö£ chunks/255-3991756713d22f05.js         46 kB
+  Γö£ chunks/4bd1b696-c023c6e3521b1417.js  54.2 kB
+  Γöö other shared chunks (total)          1.99 kB
+
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+
