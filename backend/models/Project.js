@@ -6,6 +6,12 @@ const projectSchema = new mongoose.Schema(
     description: { type: String, default: "", trim: true, maxlength: 300 },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     team: { type: mongoose.Schema.Types.ObjectId, ref: "Team", default: null },
+    startDate: { type: Date },
+    endDate: { type: Date },
+    status: { type: String, default: "active" },
+    priority: { type: String, default: "medium" },
+    category: { type: String, default: "Development" },
+    budget: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
