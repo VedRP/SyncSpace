@@ -3,7 +3,17 @@ const Team = require("../models/Team");
 
 async function createProject(req, res) {
   try {
-    const { name, description = "", teamId = null } = req.body || {};
+    const {
+      name,
+      description = "",
+      teamId = null,
+      startDate,
+      endDate,
+      status = "active",
+      priority = "medium",
+      category = "Development",
+      budget = 0,
+    } = req.body || {};
     if (!name) {
       return res.status(400).json({ success: false, data: { message: "name is required" } });
     }
@@ -27,6 +37,12 @@ async function createProject(req, res) {
       description: String(description).trim(),
       owner: req.user._id,
       team: team ? team._id : null,
+      startDate,
+      endDate,
+      status,
+      priority,
+      category,
+      budget: Number(budget),
     });
 
     return res.status(201).json({ success: true, data: project });
