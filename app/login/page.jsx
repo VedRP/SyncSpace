@@ -19,10 +19,6 @@ export default function LoginPage() {
     if (token) router.push("/dashboard");
   }, [router]);
 
-  const onSubmit = (e) => {
-    e.preventDefault();
-  };
-
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");

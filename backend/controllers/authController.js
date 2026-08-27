@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const { sendMail } = require("../config/mail");
 
 function signToken(id) {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -31,6 +32,12 @@ async function signup(req, res) {
       password: hashed,
     });
 
+    await sendMail({
+      to: user.email,
+      subject: "Welcome to SyncSpace!",
+      text: `Hello ${user.name}, welcome to SyncSpace. Your account has been successfully created.`,
+    });
+
     const token = signToken(user._id);
     return res.status(201).json({ success: true, data: { token, user: sanitizeUser(user) } });
   } catch (err) {
@@ -54,6 +61,12 @@ async function login(req, res) {
     if (!ok) {
       return res.status(401).json({ success: false, data: { message: "Invalid credentials" } });
     }
+
+    await sendMail({
+      to: user.email,
+      subject: "Successful Login - SyncSpace",
+      text: "You have successfully logged in to your SyncSpace account.",
+    });
 
     const token = signToken(user._id);
     return res.json({ success: true, data: { token, user: sanitizeUser(user) } });
