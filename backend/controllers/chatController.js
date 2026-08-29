@@ -1,0 +1,261 @@
+const Conversation = require("../models/Conversation");
+const Message = require("../models/Message");
+const User = require("../models/User");
+
+/**
+ * Get all conversations for current user
+ */
+async function getConversations(req, res) {
+  try {
+    const userId = req.user._id;
+
+    const conversations = await Conversation.find({
+      participants: userId,
+    })
+      .populate("participants", "name email")
+      .populate({
+        path: "lastMessage",
+        populate: { path: "sender", select: "name email" },
+      })
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    return res.json({ success: true, data: conversations });
+  } catch (err) {
+    console.error("getConversations error:", err);
+    return res.status(500).json({ success: false, data: { message: "Failed to fetch conversations" } });
+  }
+}
+
+/**
+ * Get or create a 1:1 direct conversation between current user and target user
+ */
+async function getOrCreateDirectConversation(req, res) {
+  try {
+    const userId = req.user._id;
+    const { recipientId } = req.body || {};
+
+    if (!recipientId) {
+      return res.status(400).json({ success: false, data: { message: "recipientId is required" } });
+    }
+
+    if (String(userId) === String(recipientId)) {
+      return res.status(400).json({ success: false, data: { message: "Cannot start a chat with yourself" } });
+    }
+
+    const recipient = await User.findById(recipientId).select("name email");
+    if (!recipient) {
+      return res.status(404).json({ success: false, data: { message: "Recipient user not found" } });
+    }
+
+    // Find existing direct conversation with exactly both participants
+    let conversation = await Conversation.findOne({
+      type: "direct",
+      participants: { $all: [userId, recipientId], $size: 2 },
+    })
+      .populate("participants", "name email")
+      .populate({
+        path: "lastMessage",
+        populate: { path: "sender", select: "name email" },
+      });
+
+    if (!conversation) {
+      conversation = await Conversation.create({
+        type: "direct",
+        participants: [userId, recipientId],
+        creator: userId,
+      });
+
+      conversation = await Conversation.findById(conversation._id).populate("participants", "name email");
+    }
+
+    return res.json({ success: true, data: conversation });
+  } catch (err) {
+    console.error("getOrCreateDirectConversation error:", err);
+    return res.status(500).json({ success: false, data: { message: "Failed to get or create conversation" } });
+  }
+}
+
+/**
+ * Create a group conversation / channel
+ */
+async function createGroupConversation(req, res) {
+  try {
+    const userId = req.user._id;
+    const { name, description, participantIds = [], type = "group" } = req.body || {};
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, data: { message: "Group name is required" } });
+    }
+
+    const uniqueParticipants = Array.from(new Set([String(userId), ...participantIds.map(String)]));
+
+    const conversation = await Conversation.create({
+      type: type === "channel" ? "channel" : "group",
+      name: name.trim(),
+      description: description ? description.trim() : "",
+      participants: uniqueParticipants,
+      creator: userId,
+    });
+
+    const populated = await Conversation.findById(conversation._id).populate("participants", "name email");
+
+    return res.status(201).json({ success: true, data: populated });
+  } catch (err) {
+    console.error("createGroupConversation error:", err);
+    return res.status(500).json({ success: false, data: { message: "Failed to create group conversation" } });
+  }
+}
+
+/**
+ * Get message history for a conversation
+ */
+async function getMessages(req, res) {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user._id;
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: userId,
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ success: false, data: { message: "Conversation not found or access denied" } });
+    }
+
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
+    const messages = await Message.find({ conversation: conversationId })
+      .populate("sender", "name email")
+      .populate({
+        path: "replyTo",
+        populate: { path: "sender", select: "name email" },
+      })
+      .sort({ createdAt: 1 })
+      .limit(limit)
+      .lean();
+
+    return res.json({ success: true, data: messages });
+  } catch (err) {
+    console.error("getMessages error:", err);
+    return res.status(500).json({ success: false, data: { message: "Failed to fetch messages" } });
+  }
+}
+
+/**
+ * Send a message via REST endpoint (useful for fallback or attachments)
+ */
+async function sendMessage(req, res) {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user._id;
+    const { text, messageType = "text", attachments = [], replyTo, callInfo } = req.body || {};
+
+    if (!text && (!attachments || attachments.length === 0) && messageType !== "call_log") {
+      return res.status(400).json({ success: false, data: { message: "Message content cannot be empty" } });
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: userId,
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ success: false, data: { message: "Conversation not found" } });
+    }
+
+    const message = await Message.create({
+      conversation: conversationId,
+      sender: userId,
+      text: text ? String(text).trim() : "",
+      messageType,
+      attachments,
+      replyTo: replyTo || null,
+      callInfo: callInfo || undefined,
+      readBy: [userId],
+    });
+
+    await Conversation.findByIdAndUpdate(conversationId, {
+      lastMessage: message._id,
+      updatedAt: new Date(),
+    });
+
+    const populated = await Message.findById(message._id)
+      .populate("sender", "name email")
+      .populate({
+        path: "replyTo",
+        populate: { path: "sender", select: "name email" },
+      });
+
+    return res.status(201).json({ success: true, data: populated });
+  } catch (err) {
+    console.error("sendMessage error:", err);
+    return res.status(500).json({ success: false, data: { message: "Failed to send message" } });
+  }
+}
+
+/**
+ * List all users / employees for direct messaging & calls
+ */
+async function getUsers(req, res) {
+  try {
+    const currentUserId = req.user._id;
+    const users = await User.find({ _id: { $ne: currentUserId } })
+      .select("name email createdAt")
+      .sort({ name: 1 })
+      .lean();
+
+    return res.json({ success: true, data: users });
+  } catch (err) {
+    console.error("getUsers error:", err);
+    return res.status(500).json({ success: false, data: { message: "Failed to fetch employees" } });
+  }
+}
+
+/**
+ * Add or toggle emoji reaction on a message
+ */
+async function addReaction(req, res) {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user._id;
+    const { emoji } = req.body || {};
+
+    if (!emoji) {
+      return res.status(400).json({ success: false, data: { message: "Emoji is required" } });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ success: false, data: { message: "Message not found" } });
+    }
+
+    const existingIndex = message.reactions.findIndex(
+      (r) => r.emoji === emoji && String(r.user) === String(userId)
+    );
+
+    if (existingIndex > -1) {
+      message.reactions.splice(existingIndex, 1);
+    } else {
+      message.reactions.push({ emoji, user: userId });
+    }
+
+    await message.save();
+
+    const populated = await Message.findById(message._id).populate("sender", "name email");
+    return res.json({ success: true, data: populated });
+  } catch (err) {
+    console.error("addReaction error:", err);
+    return res.status(500).json({ success: false, data: { message: "Failed to update reaction" } });
+  }
+}
+
+module.exports = {
+  getConversations,
+  getOrCreateDirectConversation,
+  createGroupConversation,
+  getMessages,
+  sendMessage,
+  getUsers,
+  addReaction,
+};
