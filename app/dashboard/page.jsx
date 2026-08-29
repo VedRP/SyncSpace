@@ -218,10 +218,18 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          <aside className="rounded-xl bg-white shadow-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <div className="text-xl font-semibold">Team Chat</div>
-              <div className="text-gray-500 mt-1">Mock chat (frontend only).</div>
+          <aside className="rounded-xl bg-white shadow-md overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <div className="text-xl font-semibold">Teams Chat</div>
+                <div className="text-gray-500 text-xs mt-0.5">Quick message or start a call.</div>
+              </div>
+              <Link
+                href="/chat"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-lg border border-blue-100 transition"
+              >
+                Open Full Chat →
+              </Link>
             </div>
 
             <div ref={listRef} className="h-[420px] overflow-auto px-4 py-4 space-y-2 bg-gray-50">

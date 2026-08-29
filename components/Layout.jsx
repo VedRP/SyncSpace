@@ -7,15 +7,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import useSocket from "@/hooks/useSocket";
+import CallModal from "@/modules/chat/CallModal";
+import ConferenceRoom from "@/modules/chat/ConferenceRoom";
 
 export default function Layout({ children }) {
   const pathname = usePathname();
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
 
+  // Initialize global Socket.IO connection
+  useSocket();
+
   const pageTitle = useMemo(() => {
     if (!pathname) return "Dashboard";
     if (pathname === "/dashboard") return "Dashboard";
+    if (pathname === "/chat") return "Teams Chat & Calling";
     if (pathname === "/team") return "Teams";
     if (pathname.startsWith("/team/")) return "Team";
     if (pathname === "/project") return "Projects";
@@ -135,6 +142,10 @@ export default function Layout({ children }) {
           </div>
         </div>
       </div>
+
+      {/* Global Call & Conference Modals */}
+      <CallModal />
+      <ConferenceRoom />
     </div>
   );
 }
