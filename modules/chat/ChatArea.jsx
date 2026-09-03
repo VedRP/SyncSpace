@@ -24,8 +24,21 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
   const [showEmojiMenu, setShowEmojiMenu] = useState(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState(null);
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+
+  const jumpToMessage = (messageId) => {
+    const el = document.getElementById(`msg-${messageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedMessageId(messageId);
+      setTimeout(() => {
+        setHighlightedMessageId(null);
+      }, 2000);
+    }
+  };
 
   const renderHighlightedText = (content, query) => {
     if (!query || !query.trim() || !content) return content;
@@ -109,13 +122,16 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
     if (!text.trim()) return;
 
     const draft = text.trim();
+    const currentReplyTo = replyingTo?.messageId;
     setText("");
+    setReplyingTo(null);
     sendTyping(activeConv._id, false);
 
     try {
       await sendMessage({
         conversationId: activeConv._id,
         text: draft,
+        replyTo: currentReplyTo,
       });
     } catch (err) {
       console.error("Failed to send message:", err);
@@ -334,7 +350,10 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
             return (
               <div
                 key={msg._id}
-                className={`flex gap-3 group relative ${isMe ? "justify-end" : "justify-start"}`}
+                id={`msg-${msg._id}`}
+                className={`flex gap-3 group relative p-1 rounded-2xl transition duration-300 ${
+                  highlightedMessageId === msg._id ? "bg-blue-100/70 ring-2 ring-blue-400" : ""
+                } ${isMe ? "justify-end" : "justify-start"}`}
               >
                 {/* Left Avatar (for others) */}
                 {!isMe && (
@@ -378,6 +397,23 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
                               : "bg-white border border-gray-200 text-gray-900 rounded-bl-sm"
                           }`}
                         >
+                          {msg.replyTo && (
+                            <div
+                              onClick={() => jumpToMessage(msg.replyTo._id || msg.replyTo)}
+                              className={`mb-2 p-1.5 px-2.5 rounded-xl border-l-2 text-xs text-left cursor-pointer transition select-none ${
+                                isMe
+                                  ? "bg-blue-700/60 border-white/60 text-white hover:bg-blue-700/80"
+                                  : "bg-gray-100 border-blue-500 text-gray-700 hover:bg-gray-200"
+                              }`}
+                            >
+                              <div className="font-semibold text-[11px] opacity-95">
+                                {msg.replyTo.sender?.name || "Original message"}
+                              </div>
+                              <div className="truncate text-[11px] opacity-85">
+                                {msg.replyTo.text || "Message preview"}
+                              </div>
+                            </div>
+                          )}
                           {renderHighlightedText(msg.text, searchQuery)}
                         </div>
 
@@ -396,11 +432,21 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
                               {emoji}
                             </button>
                           ))}
+                          <button
+                            type="button"
+                            onClick={() => setReplyingTo({ messageId: msg._id, text: msg.text, senderName })}
+                            className="hover:scale-110 text-gray-400 hover:text-blue-600 transition duration-150 p-0.5 ml-0.5 border-l border-gray-100"
+                            title="Reply"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2M3 10l6-6m-6 6l6 6" />
+                            </svg>
+                          </button>
                           {isMe && (
                             <button
                               type="button"
                               onClick={() => handleDeleteMessage(msg._id)}
-                              className="hover:scale-110 text-gray-400 hover:text-red-500 transition duration-150 p-0.5 ml-1 border-l border-gray-200"
+                              className="hover:scale-110 text-gray-400 hover:text-red-500 transition duration-150 p-0.5 ml-0.5 border-l border-gray-100"
                               title="Delete message"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -457,6 +503,26 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
       {/* Rich Chat Input Bar */}
       <div className="p-4 border-t border-gray-200 bg-white">
         <form onSubmit={handleSend} className="space-y-2">
+          {replyingTo && (
+            <div className="flex items-center justify-between bg-blue-50/80 border border-blue-200 rounded-xl px-3 py-1.5 text-xs text-blue-900 shadow-xs">
+              <div className="flex items-center gap-2 min-w-0">
+                <svg className="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2M3 10l6-6m-6 6l6 6" />
+                </svg>
+                <span className="truncate">
+                  Replying to <strong className="font-semibold">{replyingTo.senderName}</strong>: <span className="opacity-80 italic">"{replyingTo.text || "Message"}"</span>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReplyingTo(null)}
+                className="text-gray-400 hover:text-gray-700 ml-2 font-bold px-1 text-sm"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Quick Emoji Strip */}
           <div className="flex items-center gap-2 text-sm text-gray-400">
             {QUICK_EMOJIS.map((emoji) => (
