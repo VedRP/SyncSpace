@@ -18,6 +18,7 @@ export default function TeamsChat() {
     setEmployees,
     setLoadingChats,
     setLoadingMessages,
+    togglePinConversation,
   } = useChatStore();
 
   const { joinConversation, leaveConversation } = useSocket();
@@ -168,6 +169,18 @@ export default function TeamsChat() {
     }
   };
 
+  const handleTogglePin = async (conversationId) => {
+    try {
+      togglePinConversation(conversationId);
+      await apiFetch(`/api/chat/conversations/${conversationId}/pin`, {
+        method: "PUT",
+      });
+    } catch (err) {
+      togglePinConversation(conversationId);
+      console.error(err);
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-8rem)] rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-xl">
       {/* Sidebar: Conversation List */}
@@ -177,12 +190,14 @@ export default function TeamsChat() {
         onOpenDirectory={() => setIsDirectoryOpen(true)}
         onStartInstantMeeting={() => handleStartInstantMeeting("General Meeting")}
         onCreateGroup={() => setIsNewGroupModalOpen(true)}
+        onTogglePin={handleTogglePin}
       />
 
       {/* Main Area: Active Chat Window */}
       <ChatArea
         currentUserId={currentUserId}
         onStartInstantMeeting={handleStartInstantMeeting}
+        onTogglePin={handleTogglePin}
       />
 
       {/* Modals & Overlays */}

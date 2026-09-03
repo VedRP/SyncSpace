@@ -250,6 +250,37 @@ async function addReaction(req, res) {
   }
 }
 
+async function togglePinConversation(req, res) {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user._id;
+
+    const conversation = await Conversation.findOne({
+      _id: conversationId,
+      participants: userId,
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ success: false, data: { message: "Conversation not found" } });
+    }
+
+    conversation.pinned = !conversation.pinned;
+    await conversation.save();
+
+    const populated = await Conversation.findById(conversation._id)
+      .populate("participants", "name email")
+      .populate({
+        path: "lastMessage",
+        populate: { path: "sender", select: "name email" },
+      });
+
+    return res.json({ success: true, data: populated });
+  } catch (err) {
+    console.error("togglePinConversation error:", err);
+    return res.status(500).json({ success: false, data: { message: "Failed to toggle pin state" } });
+  }
+}
+
 module.exports = {
   getConversations,
   getOrCreateDirectConversation,
@@ -258,4 +289,5 @@ module.exports = {
   sendMessage,
   getUsers,
   addReaction,
+  togglePinConversation,
 };

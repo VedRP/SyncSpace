@@ -9,6 +9,7 @@ export default function ConversationList({
   onOpenDirectory,
   onStartInstantMeeting,
   onCreateGroup,
+  onTogglePin,
 }) {
   const {
     conversations,
@@ -165,15 +166,14 @@ export default function ConversationList({
             const lastText = conv.lastMessage?.text || "No messages yet";
 
             return (
-              <button
+              <div
                 key={conv._id}
-                type="button"
-                onClick={() => onSelectConversation(conv._id)}
-                className={`w-full p-3.5 flex items-start gap-3 text-left transition duration-150 cursor-pointer ${
+                className={`group relative w-full p-3.5 flex items-start gap-3 text-left transition duration-150 cursor-pointer ${
                   isActive
                     ? "bg-blue-50/70 border-l-4 border-blue-600"
                     : "hover:bg-gray-50 border-l-4 border-transparent"
                 }`}
+                onClick={() => onSelectConversation(conv._id)}
               >
                 {/* Avatar with Presence Indicator */}
                 <div className="relative shrink-0 mt-0.5">
@@ -198,15 +198,41 @@ export default function ConversationList({
                 {/* Conversation Details */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-sm font-semibold text-gray-900 truncate">{name}</span>
-                    {conv.lastMessage?.createdAt && (
-                      <span className="text-[10px] text-gray-400 shrink-0">
-                        {new Date(conv.lastMessage.createdAt).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-sm font-semibold text-gray-900 truncate">{name}</span>
+                      {conv.pinned && (
+                        <svg className="w-3.5 h-3.5 text-blue-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9.828 3h4.344a1 1 0 01.707 1.707l-2.121 2.122 1.414 4.242a1 1 0 01-.293 1.05l-2.828 2.828a1 1 0 01-1.414 0l-2.829-2.828a1 1 0 01-.293-1.05l1.414-4.243-2.121-2.121A1 1 0 016.63 3h3.198z" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {onTogglePin && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onTogglePin(conv._id);
+                          }}
+                          className={`p-1 rounded-md text-gray-400 hover:text-blue-600 hover:bg-gray-100 transition ${
+                            conv.pinned ? "opacity-100 text-blue-600" : "opacity-0 group-hover:opacity-100"
+                          }`}
+                          title={conv.pinned ? "Unpin chat" : "Pin chat"}
+                        >
+                          <svg className="w-3.5 h-3.5" fill={conv.pinned ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                          </svg>
+                        </button>
+                      )}
+                      {conv.lastMessage?.createdAt && (
+                        <span className="text-[10px] text-gray-400">
+                          {new Date(conv.lastMessage.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between gap-2 mt-1">
@@ -218,7 +244,7 @@ export default function ConversationList({
                     )}
                   </div>
                 </div>
-              </button>
+              </div>
             );
           })
         )}

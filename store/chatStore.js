@@ -17,7 +17,32 @@ const useChatStore = create((set, get) => ({
   isLoadingChats: false,
   isLoadingMessages: false,
 
-  setConversations: (conversations) => set({ conversations }),
+  setConversations: (conversations) => {
+    const sorted = [...conversations].sort((a, b) => {
+      if (Boolean(b.pinned) !== Boolean(a.pinned)) {
+        return Boolean(b.pinned) ? 1 : -1;
+      }
+      return new Date(b.updatedAt) - new Date(a.updatedAt);
+    });
+    set({ conversations: sorted });
+  },
+  togglePinConversation: (conversationId) => {
+    set((state) => {
+      const updated = state.conversations.map((conv) => {
+        if (conv._id === conversationId) {
+          return { ...conv, pinned: !conv.pinned };
+        }
+        return conv;
+      });
+      updated.sort((a, b) => {
+        if (Boolean(b.pinned) !== Boolean(a.pinned)) {
+          return Boolean(b.pinned) ? 1 : -1;
+        }
+        return new Date(b.updatedAt) - new Date(a.updatedAt);
+      });
+      return { conversations: updated };
+    });
+  },
   setActiveConversationId: (id) => {
     set((state) => ({
       activeConversationId: id,
@@ -46,8 +71,12 @@ const useChatStore = create((set, get) => ({
         return conv;
       });
 
-      // Sort with latest on top
-      updatedConversations.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+      updatedConversations.sort((a, b) => {
+        if (Boolean(b.pinned) !== Boolean(a.pinned)) {
+          return Boolean(b.pinned) ? 1 : -1;
+        }
+        return new Date(b.updatedAt) - new Date(a.updatedAt);
+      });
 
       const newUnread = { ...state.unreadCounts };
       if (!isCurrentConv && message.conversation) {
