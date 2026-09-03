@@ -114,6 +114,7 @@ async function getMessages(req, res) {
   try {
     const { conversationId } = req.params;
     const userId = req.user._id;
+    const { search } = req.query;
 
     const conversation = await Conversation.findOne({
       _id: conversationId,
@@ -125,7 +126,12 @@ async function getMessages(req, res) {
     }
 
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
-    const messages = await Message.find({ conversation: conversationId })
+    const filter = { conversation: conversationId };
+    if (search && search.trim()) {
+      filter.text = { $regex: search.trim(), $options: "i" };
+    }
+
+    const messages = await Message.find(filter)
       .populate("sender", "name email")
       .populate({
         path: "replyTo",

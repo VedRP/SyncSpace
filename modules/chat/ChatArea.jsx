@@ -21,9 +21,26 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
   const { sendMessage, sendTyping, sendReaction } = useSocket();
 
   const [text, setText] = useState("");
-  const [showEmojiMenu, setShowEmojiMenu] = useState(null); // messageId
+  const [showEmojiMenu, setShowEmojiMenu] = useState(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+
+  const renderHighlightedText = (content, query) => {
+    if (!query || !query.trim() || !content) return content;
+    const escaped = query.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const parts = content.split(new RegExp(`(${escaped})`, "gi"));
+    return parts.map((part, i) =>
+      part.toLowerCase() === query.trim().toLowerCase() ? (
+        <mark key={i} className="bg-yellow-200 text-yellow-900 rounded-xs px-0.5 font-semibold">
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
+  };
 
   const activeConv = conversations.find((c) => c._id === activeConversationId);
 
@@ -110,6 +127,10 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
     setShowEmojiMenu(null);
   };
 
+  const matchingCount = searchQuery.trim()
+    ? messages.filter((m) => m.text?.toLowerCase().includes(searchQuery.trim().toLowerCase())).length
+    : 0;
+
   return (
     <div className="flex-1 flex flex-col h-full bg-white min-w-0">
       {/* Active Chat Header */}
@@ -156,8 +177,26 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
           </div>
         </div>
 
-        {/* Action Controls (Audio Call, Video Call, Meet Now) */}
+        {/* Action Controls (Search, Audio Call, Video Call, Meet Now) */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setIsSearchOpen(!isSearchOpen);
+              if (isSearchOpen) setSearchQuery("");
+            }}
+            className={`p-2 rounded-xl transition duration-150 shadow-sm ${
+              isSearchOpen || searchQuery
+                ? "bg-blue-100 text-blue-700"
+                : "text-gray-600 bg-gray-100 hover:bg-gray-200"
+            }`}
+            title="Search in conversation"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </button>
+
           {/* Audio Call Button */}
           <button
             type="button"
@@ -198,6 +237,49 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
         </div>
       </div>
 
+      {isSearchOpen && (
+        <div className="px-6 py-2.5 bg-blue-50/70 border-b border-blue-100 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-1 bg-white border border-blue-200 rounded-xl px-3 py-1.5 shadow-xs">
+            <svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search messages in this chat…"
+              className="w-full bg-transparent text-xs text-gray-900 outline-none placeholder:text-gray-400"
+              autoFocus
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="text-xs text-gray-400 hover:text-gray-600 px-1"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {searchQuery.trim() && (
+              <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                {matchingCount} {matchingCount === 1 ? "match" : "matches"}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setIsSearchOpen(false);
+                setSearchQuery("");
+              }}
+              className="text-xs text-gray-500 hover:text-gray-700 font-medium px-2 py-1 rounded-lg hover:bg-gray-100"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Messages Stream */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#f8fafc]">
         {isLoadingMessages ? (
@@ -206,6 +288,11 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
           <div className="text-center py-16 text-gray-400 space-y-2">
             <div className="text-sm font-semibold text-gray-600">No messages here yet</div>
             <p className="text-xs">Send a message to say hello! 👋</p>
+          </div>
+        ) : searchQuery.trim() && matchingCount === 0 ? (
+          <div className="text-center py-16 text-gray-400 space-y-2">
+            <div className="text-sm font-semibold text-gray-600">No matching messages found</div>
+            <p className="text-xs">Try searching for a different keyword.</p>
           </div>
         ) : (
           messages.map((msg) => {
@@ -226,7 +313,7 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
                     <svg className="w-3.5 h-3.5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a11.042 11.042 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                     </svg>
-                    <span>{msg.text}</span>
+                    <span>{renderHighlightedText(msg.text, searchQuery)}</span>
                     <span className="text-[10px] text-gray-400">
                       {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
@@ -268,7 +355,7 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
                           : "bg-white border border-gray-200 text-gray-900 rounded-bl-sm"
                       }`}
                     >
-                      {msg.text}
+                      {renderHighlightedText(msg.text, searchQuery)}
                     </div>
 
                     {/* Quick Reactions Bar on Hover */}
