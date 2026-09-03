@@ -323,6 +323,67 @@ async function deleteMessage(req, res) {
     console.error("deleteMessage error:", err);
     return res.status(500).json({ success: false, data: { message: "Failed to delete message" } });
   }
+async function toggleStarMessage(req, res) {
+  try {
+    const { conversationId, messageId } = req.params;
+    const userId = req.user._id;
+
+    const message = await Message.findOne({
+      _id: messageId,
+      conversation: conversationId,
+    });
+
+    if (!message) {
+      return res.status(404).json({ success: false, data: { message: "Message not found" } });
+    }
+
+    const starIndex = message.starredBy.findIndex((id) => String(id) === String(userId));
+    if (starIndex > -1) {
+      message.starredBy.splice(starIndex, 1);
+    } else {
+      message.starredBy.push(userId);
+    }
+
+    await message.save();
+
+    const populated = await Message.findById(message._id)
+      .populate("sender", "name email")
+      .populate({
+        path: "replyTo",
+        populate: { path: "sender", select: "name email" },
+      });
+
+    return res.json({ success: true, data: populated });
+  } catch (err) {
+    console.error("toggleStarMessage error:", err);
+    return res.status(500).json({ success: false, data: { message: "Failed to toggle star message" } });
+  }
+}
+
+async function getStarredMessages(req, res) {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user._id;
+
+    const query = { starredBy: userId };
+    if (conversationId) {
+      query.conversation = conversationId;
+    }
+
+    const messages = await Message.find(query)
+      .populate("sender", "name email")
+      .populate({
+        path: "replyTo",
+        populate: { path: "sender", select: "name email" },
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json({ success: true, data: messages });
+  } catch (err) {
+    console.error("getStarredMessages error:", err);
+    return res.status(500).json({ success: false, data: { message: "Failed to get starred messages" } });
+  }
 }
 
 module.exports = {
@@ -335,4 +396,6 @@ module.exports = {
   addReaction,
   togglePinConversation,
   deleteMessage,
+  toggleStarMessage,
+  getStarredMessages,
 };

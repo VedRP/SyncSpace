@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import useChatStore from "@/store/chatStore";
 import useWebRTC from "@/hooks/useWebRTC";
 import useSocket from "@/hooks/useSocket";
+import StarredMessagesDrawer from "./StarredMessagesDrawer";
 
 const QUICK_EMOJIS = ["👍", "❤️", "🎉", "🔥", "🚀", "👏", "😊"];
 
@@ -18,12 +19,13 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
   } = useChatStore();
 
   const { makeCall } = useWebRTC();
-  const { sendMessage, sendDeleteMessage, sendTyping, sendReaction } = useSocket();
+  const { sendMessage, sendDeleteMessage, sendStarMessage, sendTyping, sendReaction } = useSocket();
 
   const [text, setText] = useState("");
   const [showEmojiMenu, setShowEmojiMenu] = useState(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isStarredDrawerOpen, setIsStarredDrawerOpen] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
   const messagesEndRef = useRef(null);
@@ -152,9 +154,21 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
     }
   };
 
+  const handleToggleStar = async (messageId) => {
+    try {
+      await sendStarMessage(messageId, activeConv._id);
+    } catch (err) {
+      console.error("Failed to star message:", err);
+    }
+  };
+
   const matchingCount = searchQuery.trim()
     ? messages.filter((m) => m.text?.toLowerCase().includes(searchQuery.trim().toLowerCase())).length
     : 0;
+
+  const starredMessages = messages.filter((m) =>
+    m.starredBy?.some((id) => String(id) === String(currentUserId))
+  );
 
   return (
     <div className="flex-1 flex flex-col h-full bg-white min-w-0">
@@ -202,7 +216,7 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
           </div>
         </div>
 
-        {/* Action Controls (Search, Audio Call, Video Call, Meet Now) */}
+        {/* Action Controls (Search, Starred, Audio Call, Video Call, Meet Now) */}
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -220,6 +234,26 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsStarredDrawerOpen(true)}
+            className={`relative p-2 rounded-xl transition duration-150 shadow-sm ${
+              starredMessages.length > 0
+                ? "text-amber-600 bg-amber-50 hover:bg-amber-100"
+                : "text-gray-600 bg-gray-100 hover:bg-gray-200"
+            }`}
+            title="Starred Messages"
+          >
+            <svg className="w-4 h-4" fill={starredMessages.length > 0 ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+            </svg>
+            {starredMessages.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center">
+                {starredMessages.length}
+              </span>
+            )}
           </button>
 
           {/* Audio Call Button */}
@@ -347,6 +381,8 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
               );
             }
 
+            const isStarred = msg.starredBy?.some((id) => String(id) === String(currentUserId));
+
             return (
               <div
                 key={msg._id}
@@ -415,6 +451,9 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
                             </div>
                           )}
                           {renderHighlightedText(msg.text, searchQuery)}
+                          {isStarred && (
+                            <span className="inline-block ml-1 text-amber-300 align-middle">★</span>
+                          )}
                         </div>
 
                         <div
@@ -434,8 +473,20 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
                           ))}
                           <button
                             type="button"
+                            onClick={() => handleToggleStar(msg._id)}
+                            className={`hover:scale-110 transition duration-150 p-0.5 ml-0.5 border-l border-gray-100 ${
+                              isStarred ? "text-amber-500" : "text-gray-400 hover:text-amber-500"
+                            }`}
+                            title={isStarred ? "Unstar message" : "Star message"}
+                          >
+                            <svg className="w-3.5 h-3.5" fill={isStarred ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setReplyingTo({ messageId: msg._id, text: msg.text, senderName })}
-                            className="hover:scale-110 text-gray-400 hover:text-blue-600 transition duration-150 p-0.5 ml-0.5 border-l border-gray-100"
+                            className="hover:scale-110 text-gray-400 hover:text-blue-600 transition duration-150 p-0.5"
                             title="Reply"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -566,6 +617,15 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
           </div>
         </form>
       </div>
+
+      <StarredMessagesDrawer
+        isOpen={isStarredDrawerOpen}
+        onClose={() => setIsStarredDrawerOpen(false)}
+        starredMessages={starredMessages}
+        onJumpToMessage={jumpToMessage}
+        onToggleStar={handleToggleStar}
+        currentUserId={currentUserId}
+      />
     </div>
   );
 }

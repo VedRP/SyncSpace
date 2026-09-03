@@ -11,6 +11,8 @@ const {
   addReaction,
   togglePinConversation,
   deleteMessage,
+  toggleStarMessage,
+  getStarredMessages,
 } = require("../controllers/chatController");
 
 router.use(protect);
@@ -22,6 +24,9 @@ router.put("/conversations/:conversationId/pin", togglePinConversation);
 router.get("/conversations/:conversationId/messages", getMessages);
 router.post("/conversations/:conversationId/messages", sendMessage);
 router.delete("/conversations/:conversationId/messages/:messageId", deleteMessage);
+router.put("/conversations/:conversationId/messages/:messageId/star", toggleStarMessage);
+router.get("/conversations/:conversationId/starred", getStarredMessages);
+router.get("/messages/starred", getStarredMessages);
 router.post("/messages/:messageId/react", addReaction);
 router.get("/users", getUsers);
 

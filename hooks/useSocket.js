@@ -175,6 +175,16 @@ export default function useSocket() {
     });
   }, []);
 
+  const sendStarMessage = useCallback((messageId, conversationId) => {
+    return new Promise((resolve, reject) => {
+      if (!globalSocket) return reject(new Error("Socket not connected"));
+      globalSocket.emit("star_message", { messageId, conversationId }, (res) => {
+        if (res?.error) reject(new Error(res.error));
+        else resolve(res?.message);
+      });
+    });
+  }, []);
+
   const sendTyping = useCallback((conversationId, isTyping) => {
     if (globalSocket) {
       globalSocket.emit("typing", { conversationId, isTyping });
@@ -194,6 +204,7 @@ export default function useSocket() {
     leaveConversation,
     sendMessage,
     sendDeleteMessage,
+    sendStarMessage,
     sendTyping,
     sendReaction,
   };

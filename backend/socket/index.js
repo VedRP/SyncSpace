@@ -217,6 +217,40 @@ function setupSocket(httpServer) {
       }
     });
 
+    socket.on("star_message", async ({ messageId, conversationId }, callback) => {
+      try {
+        const message = await Message.findOne({
+          _id: messageId,
+          conversation: conversationId,
+        });
+        if (!message) return;
+
+        const starIndex = message.starredBy.findIndex((id) => String(id) === userId);
+        if (starIndex > -1) {
+          message.starredBy.splice(starIndex, 1);
+        } else {
+          message.starredBy.push(userId);
+        }
+
+        await message.save();
+
+        const populated = await Message.findById(message._id)
+          .populate("sender", "name email")
+          .populate({
+            path: "replyTo",
+            populate: { path: "sender", select: "name email" },
+          })
+          .lean();
+
+        io.to(`conversation_${conversationId}`).emit("message_updated", populated);
+
+        if (callback) callback({ success: true, message: populated });
+      } catch (err) {
+        console.error("star_message socket error:", err);
+        if (callback) callback({ error: "Failed to star message" });
+      }
+    });
+
     // ----------------------------------------------------
     // 1:1 Audio & Video Calling (WebRTC Signaling)
     // ----------------------------------------------------
