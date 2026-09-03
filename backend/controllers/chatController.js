@@ -386,6 +386,94 @@ async function getStarredMessages(req, res) {
   }
 }
 
+async function addParticipants(req, res) {
+  try {
+    const { conversationId } = req.params;
+    const { participantIds = [] } = req.body || {};
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ success: false, data: { message: "Conversation not found" } });
+    }
+
+    const currentSet = new Set(conversation.participants.map(String));
+    participantIds.forEach((id) => currentSet.add(String(id)));
+    conversation.participants = Array.from(currentSet);
+
+    await conversation.save();
+
+    const populated = await Conversation.findById(conversation._id)
+      .populate("participants", "name email")
+      .populate({
+        path: "lastMessage",
+        populate: { path: "sender", select: "name email" },
+      });
+
+    return res.json({ success: true, data: populated });
+  } catch (err) {
+    console.error("addParticipants error:", err);
+    return res.status(500).json({ success: false, data: { message: "Failed to add participants" } });
+  }
+}
+
+async function removeParticipant(req, res) {
+  try {
+    const { conversationId, participantId } = req.params;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ success: false, data: { message: "Conversation not found" } });
+    }
+
+    conversation.participants = conversation.participants.filter(
+      (p) => String(p) !== String(participantId)
+    );
+
+    await conversation.save();
+
+    const populated = await Conversation.findById(conversation._id)
+      .populate("participants", "name email")
+      .populate({
+        path: "lastMessage",
+        populate: { path: "sender", select: "name email" },
+      });
+
+    return res.json({ success: true, data: populated });
+  } catch (err) {
+    console.error("removeParticipant error:", err);
+    return res.status(500).json({ success: false, data: { message: "Failed to remove participant" } });
+  }
+}
+
+async function updateConversationDetails(req, res) {
+  try {
+    const { conversationId } = req.params;
+    const { name, description } = req.body || {};
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ success: false, data: { message: "Conversation not found" } });
+    }
+
+    if (name) conversation.name = name.trim();
+    if (typeof description === "string") conversation.description = description.trim();
+
+    await conversation.save();
+
+    const populated = await Conversation.findById(conversation._id)
+      .populate("participants", "name email")
+      .populate({
+        path: "lastMessage",
+        populate: { path: "sender", select: "name email" },
+      });
+
+    return res.json({ success: true, data: populated });
+  } catch (err) {
+    console.error("updateConversationDetails error:", err);
+    return res.status(500).json({ success: false, data: { message: "Failed to update channel details" } });
+  }
+}
+
 module.exports = {
   getConversations,
   getOrCreateDirectConversation,
@@ -398,4 +486,7 @@ module.exports = {
   deleteMessage,
   toggleStarMessage,
   getStarredMessages,
+  addParticipants,
+  removeParticipant,
+  updateConversationDetails,
 };

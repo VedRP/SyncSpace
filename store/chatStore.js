@@ -43,6 +43,13 @@ const useChatStore = create((set, get) => ({
       return { conversations: updated };
     });
   },
+  updateConversation: (updatedConv) => {
+    set((state) => ({
+      conversations: state.conversations.map((conv) =>
+        conv._id === updatedConv._id ? { ...conv, ...updatedConv } : conv
+      ),
+    }));
+  },
   setActiveConversationId: (id) => {
     set((state) => ({
       activeConversationId: id,

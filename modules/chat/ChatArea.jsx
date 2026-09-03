@@ -5,10 +5,18 @@ import useChatStore from "@/store/chatStore";
 import useWebRTC from "@/hooks/useWebRTC";
 import useSocket from "@/hooks/useSocket";
 import StarredMessagesDrawer from "./StarredMessagesDrawer";
+import ChannelDetailsDrawer from "./ChannelDetailsDrawer";
 
 const QUICK_EMOJIS = ["👍", "❤️", "🎉", "🔥", "🚀", "👏", "😊"];
 
-export default function ChatArea({ currentUserId, onStartInstantMeeting, onTogglePin }) {
+export default function ChatArea({
+  currentUserId,
+  onStartInstantMeeting,
+  onTogglePin,
+  employees = [],
+  onAddParticipants,
+  onRemoveParticipant,
+}) {
   const {
     conversations,
     activeConversationId,
@@ -26,6 +34,7 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isStarredDrawerOpen, setIsStarredDrawerOpen] = useState(false);
+  const [isDetailsDrawerOpen, setIsDetailsDrawerOpen] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
   const [stagedAttachments, setStagedAttachments] = useState([]);
@@ -370,6 +379,22 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </button>
+
+          {/* Details / Info Button */}
+          <button
+            type="button"
+            onClick={() => setIsDetailsDrawerOpen(true)}
+            className={`p-2 rounded-xl transition duration-150 shadow-sm ${
+              isDetailsDrawerOpen
+                ? "bg-blue-100 text-blue-700"
+                : "text-gray-600 bg-gray-100 hover:bg-gray-200"
+            }`}
+            title="Conversation details and shared files"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </button>
         </div>
@@ -795,6 +820,19 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
         onJumpToMessage={jumpToMessage}
         onToggleStar={handleToggleStar}
         currentUserId={currentUserId}
+      />
+
+      <ChannelDetailsDrawer
+        isOpen={isDetailsDrawerOpen}
+        onClose={() => setIsDetailsDrawerOpen(false)}
+        conversation={activeConv}
+        messages={messages}
+        employees={employees}
+        onlineUsers={onlineUsers}
+        currentUserId={currentUserId}
+        onAddParticipants={onAddParticipants}
+        onRemoveParticipant={onRemoveParticipant}
+        onPreviewMedia={(media) => setPreviewMedia(media)}
       />
 
       {previewMedia && (

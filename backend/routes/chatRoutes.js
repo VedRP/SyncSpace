@@ -13,6 +13,9 @@ const {
   deleteMessage,
   toggleStarMessage,
   getStarredMessages,
+  addParticipants,
+  removeParticipant,
+  updateConversationDetails,
 } = require("../controllers/chatController");
 
 router.use(protect);
@@ -21,6 +24,9 @@ router.get("/conversations", getConversations);
 router.post("/conversations/direct", getOrCreateDirectConversation);
 router.post("/conversations/group", createGroupConversation);
 router.put("/conversations/:conversationId/pin", togglePinConversation);
+router.put("/conversations/:conversationId/details", updateConversationDetails);
+router.post("/conversations/:conversationId/participants", addParticipants);
+router.delete("/conversations/:conversationId/participants/:participantId", removeParticipant);
 router.get("/conversations/:conversationId/messages", getMessages);
 router.post("/conversations/:conversationId/messages", sendMessage);
 router.delete("/conversations/:conversationId/messages/:messageId", deleteMessage);

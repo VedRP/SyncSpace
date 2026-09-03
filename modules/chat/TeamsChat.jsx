@@ -15,10 +15,12 @@ export default function TeamsChat() {
     activeConversationId,
     setActiveConversationId,
     setMessages,
+    employees,
     setEmployees,
     setLoadingChats,
     setLoadingMessages,
     togglePinConversation,
+    updateConversation,
   } = useChatStore();
 
   const { joinConversation, leaveConversation } = useSocket();
@@ -181,6 +183,29 @@ export default function TeamsChat() {
     }
   };
 
+  const handleAddParticipants = async (conversationId, participantIds) => {
+    try {
+      const updated = await apiFetch(`/api/chat/conversations/${conversationId}/participants`, {
+        method: "POST",
+        body: JSON.stringify({ participantIds }),
+      });
+      updateConversation(updated);
+    } catch (err) {
+      alert(err.message || "Failed to add participants");
+    }
+  };
+
+  const handleRemoveParticipant = async (conversationId, participantId) => {
+    try {
+      const updated = await apiFetch(`/api/chat/conversations/${conversationId}/participants/${participantId}`, {
+        method: "DELETE",
+      });
+      updateConversation(updated);
+    } catch (err) {
+      alert(err.message || "Failed to remove participant");
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-8rem)] rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-xl">
       {/* Sidebar: Conversation List */}
@@ -198,6 +223,9 @@ export default function TeamsChat() {
         currentUserId={currentUserId}
         onStartInstantMeeting={handleStartInstantMeeting}
         onTogglePin={handleTogglePin}
+        employees={employees}
+        onAddParticipants={handleAddParticipants}
+        onRemoveParticipant={handleRemoveParticipant}
       />
 
       {/* Modals & Overlays */}
