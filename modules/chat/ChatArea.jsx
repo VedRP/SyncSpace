@@ -18,7 +18,7 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
   } = useChatStore();
 
   const { makeCall } = useWebRTC();
-  const { sendMessage, sendTyping, sendReaction } = useSocket();
+  const { sendMessage, sendDeleteMessage, sendTyping, sendReaction } = useSocket();
 
   const [text, setText] = useState("");
   const [showEmojiMenu, setShowEmojiMenu] = useState(null);
@@ -125,6 +125,15 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
   const handleReactionClick = (messageId, emoji) => {
     sendReaction(messageId, emoji, activeConv._id);
     setShowEmojiMenu(null);
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    if (!confirm("Are you sure you want to delete this message?")) return;
+    try {
+      await sendDeleteMessage(messageId, activeConv._id);
+    } catch (err) {
+      console.error("Failed to delete message:", err);
+    }
   };
 
   const matchingCount = searchQuery.trim()
@@ -347,34 +356,61 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
                   </div>
 
                   <div className="relative group/bubble">
-                    {/* Bubble */}
-                    <div
-                      className={`p-3 rounded-2xl text-sm leading-relaxed shadow-sm transition duration-150 ${
-                        isMe
-                          ? "bg-blue-600 text-white rounded-br-sm"
-                          : "bg-white border border-gray-200 text-gray-900 rounded-bl-sm"
-                      }`}
-                    >
-                      {renderHighlightedText(msg.text, searchQuery)}
-                    </div>
-
-                    {/* Quick Reactions Bar on Hover */}
-                    <div
-                      className={`absolute -top-7 ${
-                        isMe ? "right-0" : "left-0"
-                      } hidden group-hover/bubble:flex items-center gap-1 bg-white border border-gray-200 rounded-full px-2 py-0.5 shadow-md z-10`}
-                    >
-                      {QUICK_EMOJIS.slice(0, 4).map((emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          onClick={() => handleReactionClick(msg._id, emoji)}
-                          className="hover:scale-125 transition duration-150 text-xs p-0.5"
+                    {msg.isDeleted ? (
+                      <div
+                        className={`p-2.5 px-3.5 rounded-2xl text-xs italic flex items-center gap-1.5 shadow-sm ${
+                          isMe
+                            ? "bg-blue-600/70 text-blue-100 rounded-br-sm"
+                            : "bg-gray-100 border border-gray-200 text-gray-500 rounded-bl-sm"
+                        }`}
+                      >
+                        <svg className="w-3.5 h-3.5 opacity-75 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        <span>This message was deleted</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div
+                          className={`p-3 rounded-2xl text-sm leading-relaxed shadow-sm transition duration-150 ${
+                            isMe
+                              ? "bg-blue-600 text-white rounded-br-sm"
+                              : "bg-white border border-gray-200 text-gray-900 rounded-bl-sm"
+                          }`}
                         >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
+                          {renderHighlightedText(msg.text, searchQuery)}
+                        </div>
+
+                        <div
+                          className={`absolute -top-7 ${
+                            isMe ? "right-0" : "left-0"
+                          } hidden group-hover/bubble:flex items-center gap-1 bg-white border border-gray-200 rounded-full px-2 py-0.5 shadow-md z-10`}
+                        >
+                          {QUICK_EMOJIS.slice(0, 4).map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => handleReactionClick(msg._id, emoji)}
+                              className="hover:scale-125 transition duration-150 text-xs p-0.5"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                          {isMe && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMessage(msg._id)}
+                              className="hover:scale-110 text-gray-400 hover:text-red-500 transition duration-150 p-0.5 ml-1 border-l border-gray-200"
+                              title="Delete message"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Render Message Reactions */}

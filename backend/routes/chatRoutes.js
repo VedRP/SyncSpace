@@ -10,6 +10,7 @@ const {
   getUsers,
   addReaction,
   togglePinConversation,
+  deleteMessage,
 } = require("../controllers/chatController");
 
 router.use(protect);
@@ -20,6 +21,7 @@ router.post("/conversations/group", createGroupConversation);
 router.put("/conversations/:conversationId/pin", togglePinConversation);
 router.get("/conversations/:conversationId/messages", getMessages);
 router.post("/conversations/:conversationId/messages", sendMessage);
+router.delete("/conversations/:conversationId/messages/:messageId", deleteMessage);
 router.post("/messages/:messageId/react", addReaction);
 router.get("/users", getUsers);
 

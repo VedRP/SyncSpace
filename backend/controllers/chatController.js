@@ -287,6 +287,44 @@ async function togglePinConversation(req, res) {
   }
 }
 
+async function deleteMessage(req, res) {
+  try {
+    const { conversationId, messageId } = req.params;
+    const userId = req.user._id;
+
+    const message = await Message.findOne({
+      _id: messageId,
+      conversation: conversationId,
+    });
+
+    if (!message) {
+      return res.status(404).json({ success: false, data: { message: "Message not found" } });
+    }
+
+    if (String(message.sender) !== String(userId)) {
+      return res.status(403).json({ success: false, data: { message: "Not authorized to delete this message" } });
+    }
+
+    message.isDeleted = true;
+    message.text = "This message was deleted";
+    message.attachments = [];
+    message.reactions = [];
+    await message.save();
+
+    const populated = await Message.findById(message._id)
+      .populate("sender", "name email")
+      .populate({
+        path: "replyTo",
+        populate: { path: "sender", select: "name email" },
+      });
+
+    return res.json({ success: true, data: populated });
+  } catch (err) {
+    console.error("deleteMessage error:", err);
+    return res.status(500).json({ success: false, data: { message: "Failed to delete message" } });
+  }
+}
+
 module.exports = {
   getConversations,
   getOrCreateDirectConversation,
@@ -296,4 +334,5 @@ module.exports = {
   getUsers,
   addReaction,
   togglePinConversation,
+  deleteMessage,
 };

@@ -64,6 +64,10 @@ export default function useSocket() {
       updateMessage(message);
     }
 
+    function onMessageDeleted(message) {
+      updateMessage(message);
+    }
+
     function onUserTyping({ conversationId, userName, isTyping }) {
       setTyping(conversationId, userName, isTyping);
     }
@@ -109,6 +113,7 @@ export default function useSocket() {
     globalSocket.on("online_users", onOnlineUsers);
     globalSocket.on("new_message", onNewMessage);
     globalSocket.on("message_updated", onMessageUpdated);
+    globalSocket.on("message_deleted", onMessageDeleted);
     globalSocket.on("user_typing", onUserTyping);
     globalSocket.on("incoming_call", onIncomingCall);
     globalSocket.on("call_ended", onCallEnded);
@@ -160,6 +165,16 @@ export default function useSocket() {
     });
   }, []);
 
+  const sendDeleteMessage = useCallback((messageId, conversationId) => {
+    return new Promise((resolve, reject) => {
+      if (!globalSocket) return reject(new Error("Socket not connected"));
+      globalSocket.emit("delete_message", { messageId, conversationId }, (res) => {
+        if (res?.error) reject(new Error(res.error));
+        else resolve(res?.message);
+      });
+    });
+  }, []);
+
   const sendTyping = useCallback((conversationId, isTyping) => {
     if (globalSocket) {
       globalSocket.emit("typing", { conversationId, isTyping });
@@ -178,6 +193,7 @@ export default function useSocket() {
     joinConversation,
     leaveConversation,
     sendMessage,
+    sendDeleteMessage,
     sendTyping,
     sendReaction,
   };

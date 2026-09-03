@@ -186,6 +186,37 @@ function setupSocket(httpServer) {
       }
     });
 
+    socket.on("delete_message", async ({ messageId, conversationId }, callback) => {
+      try {
+        const message = await Message.findOne({
+          _id: messageId,
+          conversation: conversationId,
+        });
+
+        if (!message || String(message.sender) !== userId) {
+          if (callback) callback({ error: "Cannot delete this message" });
+          return;
+        }
+
+        message.isDeleted = true;
+        message.text = "This message was deleted";
+        message.attachments = [];
+        message.reactions = [];
+        await message.save();
+
+        const populated = await Message.findById(message._id)
+          .populate("sender", "name email")
+          .lean();
+
+        io.to(`conversation_${conversationId}`).emit("message_deleted", populated);
+
+        if (callback) callback({ success: true, message: populated });
+      } catch (err) {
+        console.error("delete_message socket error:", err);
+        if (callback) callback({ error: "Failed to delete message" });
+      }
+    });
+
     // ----------------------------------------------------
     // 1:1 Audio & Video Calling (WebRTC Signaling)
     // ----------------------------------------------------
