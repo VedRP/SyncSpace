@@ -28,8 +28,49 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
   const [isStarredDrawerOpen, setIsStarredDrawerOpen] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
+  const [stagedAttachments, setStagedAttachments] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [previewMedia, setPreviewMedia] = useState(null);
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  };
+
+  const processFiles = (files) => {
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setStagedAttachments((prev) => [
+          ...prev,
+          {
+            name: file.name,
+            url: e.target.result,
+            fileType: file.type || "application/octet-stream",
+            size: file.size,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files?.length) {
+      processFiles(e.target.files);
+      e.target.value = "";
+    }
+  };
+
+  const removeStagedAttachment = (index) => {
+    setStagedAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const jumpToMessage = (messageId) => {
     const el = document.getElementById(`msg-${messageId}`);
@@ -121,18 +162,26 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
 
   const handleSend = async (e) => {
     e?.preventDefault();
-    if (!text.trim()) return;
+    if (!text.trim() && stagedAttachments.length === 0) return;
 
     const draft = text.trim();
     const currentReplyTo = replyingTo?.messageId;
+    const currentAttachments = [...stagedAttachments];
+    const messageType = currentAttachments.length > 0
+      ? currentAttachments.some((a) => a.fileType?.startsWith("image/")) ? "image" : "file"
+      : "text";
+
     setText("");
     setReplyingTo(null);
+    setStagedAttachments([]);
     sendTyping(activeConv._id, false);
 
     try {
       await sendMessage({
         conversationId: activeConv._id,
         text: draft,
+        attachments: currentAttachments,
+        messageType,
         replyTo: currentReplyTo,
       });
     } catch (err) {
@@ -171,7 +220,37 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
   );
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white min-w-0">
+    <div
+      className="flex-1 flex flex-col h-full bg-white min-w-0 relative"
+      onDragOver={(e) => {
+        e.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+          setIsDragging(false);
+        }
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (e.dataTransfer.files?.length) {
+          processFiles(e.dataTransfer.files);
+        }
+      }}
+    >
+      {isDragging && (
+        <div className="absolute inset-0 z-40 bg-blue-600/10 backdrop-blur-xs border-2 border-dashed border-blue-500 rounded-2xl flex flex-col items-center justify-center pointer-events-none animate-fadeIn">
+          <div className="p-4 rounded-2xl bg-white shadow-xl text-blue-600 flex items-center gap-3">
+            <svg className="w-8 h-8 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <span className="text-sm font-bold text-gray-800">Drop files here to attach</span>
+          </div>
+        </div>
+      )}
+
       {/* Active Chat Header */}
       <div className="h-16 px-6 border-b border-gray-200 flex items-center justify-between bg-white shrink-0">
         <div className="flex items-center gap-3 min-w-0">
@@ -450,7 +529,62 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
                               </div>
                             </div>
                           )}
-                          {renderHighlightedText(msg.text, searchQuery)}
+
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="space-y-2 mb-2">
+                              {msg.attachments.filter((a) => a.fileType?.startsWith("image/")).length > 0 && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  {msg.attachments
+                                    .filter((a) => a.fileType?.startsWith("image/"))
+                                    .map((att, idx) => (
+                                      <div
+                                        key={idx}
+                                        onClick={() => setPreviewMedia(att)}
+                                        className="relative group/img overflow-hidden rounded-xl bg-gray-900/5 cursor-pointer max-h-48 border border-black/5"
+                                      >
+                                        <img
+                                          src={att.url}
+                                          alt={att.name || "Attachment"}
+                                          className="w-full h-full object-cover group-hover/img:scale-105 transition duration-200"
+                                        />
+                                      </div>
+                                    ))}
+                                </div>
+                              )}
+
+                              {msg.attachments
+                                .filter((a) => !a.fileType?.startsWith("image/"))
+                                .map((att, idx) => (
+                                  <a
+                                    key={idx}
+                                    href={att.url}
+                                    download={att.name}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className={`flex items-center gap-3 p-2.5 rounded-xl border transition shadow-xs ${
+                                      isMe
+                                        ? "bg-blue-700/80 border-blue-400/40 text-white hover:bg-blue-700"
+                                        : "bg-gray-50 border-gray-200 text-gray-900 hover:bg-gray-100"
+                                    }`}
+                                  >
+                                    <div className="w-8 h-8 rounded-lg bg-black/10 flex items-center justify-center shrink-0">
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                      </svg>
+                                    </div>
+                                    <div className="flex-1 min-w-0 text-left">
+                                      <div className="text-xs font-semibold truncate">{att.name}</div>
+                                      <div className="text-[10px] opacity-70">{formatFileSize(att.size)}</div>
+                                    </div>
+                                    <svg className="w-4 h-4 opacity-70 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                  </a>
+                                ))}
+                            </div>
+                          )}
+
+                          {msg.text && renderHighlightedText(msg.text, searchQuery)}
                           {isStarred && (
                             <span className="inline-block ml-1 text-amber-300 align-middle">★</span>
                           )}
@@ -574,6 +708,24 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
             </div>
           )}
 
+          {stagedAttachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 p-2 bg-gray-100/80 rounded-xl border border-gray-200">
+              {stagedAttachments.map((file, idx) => (
+                <div key={idx} className="flex items-center gap-2 bg-white px-2.5 py-1 rounded-lg border border-gray-200 text-xs shadow-xs">
+                  <span className="font-medium text-gray-700 max-w-[140px] truncate">{file.name}</span>
+                  <span className="text-[10px] text-gray-400">({formatFileSize(file.size)})</span>
+                  <button
+                    type="button"
+                    onClick={() => removeStagedAttachment(idx)}
+                    className="text-gray-400 hover:text-red-500 font-bold ml-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Quick Emoji Strip */}
           <div className="flex items-center gap-2 text-sm text-gray-400">
             {QUICK_EMOJIS.map((emoji) => (
@@ -590,6 +742,24 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
 
           {/* Input Box */}
           <div className="flex items-end gap-2 bg-gray-50 border border-gray-300 rounded-2xl p-2.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition duration-150">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="p-1.5 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-gray-200/70 transition shrink-0"
+              title="Attach files or photos"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+            </button>
+
             <textarea
               rows={1}
               value={text}
@@ -606,8 +776,8 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
 
             <button
               type="submit"
-              disabled={!text.trim()}
-              className="p-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition duration-150 shadow-sm"
+              disabled={!text.trim() && stagedAttachments.length === 0}
+              className="p-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition duration-150 shadow-sm shrink-0"
               title="Send Message"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -626,6 +796,40 @@ export default function ChatArea({ currentUserId, onStartInstantMeeting, onToggl
         onToggleStar={handleToggleStar}
         currentUserId={currentUserId}
       />
+
+      {previewMedia && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-fadeIn"
+          onClick={() => setPreviewMedia(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            <div className="w-full flex items-center justify-between pb-3 text-white text-xs">
+              <span className="truncate max-w-md font-semibold">{previewMedia.name}</span>
+              <div className="flex items-center gap-3">
+                <a
+                  href={previewMedia.url}
+                  download={previewMedia.name}
+                  className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-xl text-white font-medium transition"
+                >
+                  Download
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMedia(null)}
+                  className="text-white hover:text-gray-300 text-base font-bold px-2"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <img
+              src={previewMedia.url}
+              alt={previewMedia.name}
+              className="max-h-[80vh] max-w-full rounded-2xl object-contain shadow-2xl border border-white/10"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
